@@ -48,7 +48,7 @@ The application is built with Python and uses the `tkinter` and `customtkinter` 
    ```
 3. **Execute Pyinstaller**:
    ```bash
-   pyinstaller --noconfirm --onefile --windowed --add-data "media;media" app/main.py
+   pyinstaller --noconfirm --onefile --windowed --add-data "media;media" --add-data "resources/AIH.ico;resources" --icon "resources/AIH.ico" --name=AIH app/main.py
    ```
 
 **Note:** You can use instead the pre-compile provided executable inside the `desktop` folder
@@ -65,20 +65,17 @@ The application is built with Python and uses the `tkinter` and `customtkinter` 
 
 
 
-## Details
-
-- **Author Name Normalization**: The application uses robust normalization to match author names across different formats (e.g., "Last, First" vs. "First Last").
-- **Keyword Extraction**: Keywords are extracted from explicit fields ("Author Keywords", "Keywords Plus") and from the title/abstract text, supporting both list and string formats.
-- **Position Score**: The index calculation considers the author's position in the author list, giving extra weight to first/last authors.
-
-
 
 ## Authors
 
-- Jorge Felix Martinez Pazos
-- Jorge Gulin Gonzales  
-  Study Center on Computational Mathematics  
-  University of Informatics Science, Havana, Cuba
+- **Jorge Felix Martinez Pazos**  
+  Researcher  
+
+- **Jorge Gulin Gonzales**  
+  Principal Researcher 
+
+**Study Center on Computational Mathematics**  
+University of Informatics Science, Havana, Cuba
 
 
 
