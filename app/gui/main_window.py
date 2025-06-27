@@ -6,6 +6,17 @@ from app.gui.data_table import DataTable
 from app.gui.authors_list import AuthorsList
 from app.gui.wordcloud_viewer import WordCloudViewer
 from app.gui.author_keyword_index import AuthorKeywordIndexFrame
+import pandas as pd
+import os
+import sys
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 class MainWindow:
     def __init__(self):
@@ -13,10 +24,11 @@ class MainWindow:
         ctk.set_default_color_theme("blue")
         self.root = ctk.CTk()
         self.root.title("Author Index Related to the Keyword (k) Calculator")
+        self.root.iconbitmap(resource_path("resources/AIH.ico"))
         
         self.root.geometry("1050x750")
         self.root.resizable(False, False)
-        # Menu bar (CTk does not support native menu, so use a top frame with buttons)
+
         menu_frame = ctk.CTkFrame(self.root, fg_color=BACKGROUND_COLOR)
         menu_frame.pack(fill='x', pady=(0, 5))
         upload_btn = ctk.CTkButton(menu_frame, text="Upload New Author Data", command=self.open_upload_window, fg_color=PRIMARY_COLOR)
@@ -33,6 +45,31 @@ class MainWindow:
         title.pack(pady=(5, 5))
         legend1.pack(pady=(2, 2))
     
+        # --- Año selector frame ---
+        year_frame = ctk.CTkFrame(self.root, fg_color=BACKGROUND_COLOR)
+        year_frame.pack(fill='x', padx=20, pady=(0, 5))
+        year_label = ctk.CTkLabel(year_frame, text="Publication Year Range:", font=("Segoe UI", 11), text_color=PRIMARY_COLOR)
+        year_label.pack(side='left', padx=(5, 5))
+        # Obtener años disponibles
+        from app.logic.file_loader import load_all_data
+        df_all = load_all_data()
+        if not df_all.empty and 'Publication Year' in df_all.columns:
+            years = sorted(df_all['Publication Year'].dropna().unique())
+            years = [int(y) for y in years if str(y).isdigit()]
+            if not years:
+                years = [2022, 2023, 2024]
+        else:
+            years = [2022, 2023, 2024]
+        min_year, max_year = min(years), max(years)
+        self.year_start_var = ctk.StringVar(value="2022")
+        self.year_end_var = ctk.StringVar(value="2024")
+        self.year_start_combo = ctk.CTkComboBox(year_frame, values=[str(y) for y in years], variable=self.year_start_var, width=80, command=self.on_year_change)
+        self.year_start_combo.pack(side='left', padx=(5, 2))
+        dash_label = ctk.CTkLabel(year_frame, text="-", font=("Segoe UI", 11, "bold"), text_color=PRIMARY_COLOR)
+        dash_label.pack(side='left')
+        self.year_end_combo = ctk.CTkComboBox(year_frame, values=[str(y) for y in years], variable=self.year_end_var, width=80, command=self.on_year_change)
+        self.year_end_combo.pack(side='left', padx=(2, 5))
+
         # Main vertical frame
         main_frame = ctk.CTkFrame(self.root, fg_color=BACKGROUND_COLOR)
         main_frame.pack(fill='both', expand=True, padx=20, pady=10)
@@ -60,6 +97,9 @@ class MainWindow:
         self.author_keyword_index.author_combo.configure(command=self.on_index_author_change)
         # Upload window (hidden by default)
         self.upload_window = None
+
+        # Inicializar datos filtrados
+        self.update_filtered_data()
     def open_upload_window(self):
         if self.upload_window and ctk.CTkToplevel.winfo_exists(self.upload_window):
             self.upload_window.lift()
@@ -70,7 +110,6 @@ class MainWindow:
         if selection:
             author = event.widget.get(selection[0])
             self.wordcloud_viewer.show_for_author(author)
-            # Aquí en el futuro se puede actualizar self.metrics_label y self.metrics_table con métricas del autor
     def on_index_author_change(self, author):
         # Update the wordcloud to reflect the author selected for index analysis
         self.wordcloud_viewer.show_for_author(author)
@@ -92,4 +131,35 @@ class MainWindow:
         close_btn = ctk.CTkButton(popup, text="Exit", command=popup.destroy, fg_color=PRIMARY_COLOR, width=100)
         close_btn.pack(pady=10)
     def run(self):
-        self.root.mainloop() 
+        self.root.mainloop()
+
+    def get_filtered_df(self):
+        from app.logic.file_loader import load_all_data
+        df = load_all_data()
+        try:
+            year_start = int(self.year_start_var.get())
+            year_end = int(self.year_end_var.get())
+        except Exception:
+            year_start, year_end = 2022, 2024
+        if not df.empty and 'Publication Year' in df.columns:
+            df = df[df['Publication Year'].apply(lambda y: str(y).isdigit() and year_start <= int(y) <= year_end)]
+        return df
+
+    def update_filtered_data(self):
+        df = self.get_filtered_df()
+        if hasattr(self.authors_list, 'set_data'):
+            self.authors_list.set_data(df)
+        else:
+            self.authors_list.refresh()
+        if hasattr(self.data_table, 'set_data'):
+            self.data_table.set_data(df)
+        else:
+            self.data_table.refresh()
+        if hasattr(self.author_keyword_index, 'set_data'):
+            self.author_keyword_index.set_data(df)
+        else:
+            self.author_keyword_index.df = df
+            self.author_keyword_index.refresh_authors()
+
+    def on_year_change(self, *args):
+        self.update_filtered_data() 

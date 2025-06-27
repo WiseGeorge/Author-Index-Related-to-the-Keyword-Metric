@@ -20,5 +20,12 @@ class AuthorsList(ctk.CTkFrame):
             for author in authors:
                 self.listbox.insert('end', author)
 
+    def set_data(self, df):
+        self.listbox.delete(0, tk.END)
+        if not df.empty and '__author__' in df.columns:
+            authors = sorted(df['__author__'].unique())
+            for author in authors:
+                self.listbox.insert('end', author)
+
     # Placeholder de autores
     #self.listbox.insert('end', "Ejemplo Autor") 

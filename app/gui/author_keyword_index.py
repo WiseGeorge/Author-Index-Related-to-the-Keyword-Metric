@@ -299,6 +299,19 @@ class AuthorKeywordIndexFrame(ctk.CTkFrame):
                 from tkinter import messagebox
                 messagebox.showerror("Export Error", f"Could not export to Excel:\n{e}")
 
+    def set_data(self, df):
+        self.df = df
+        self.folder_authors = self._get_folder_authors()
+        self.authors = self._get_authors()
+        self.author_combo.configure(values=self.authors)
+        if self.authors:
+            self.author_combo.set(self.authors[0])
+            self.update_keywords_for_author(self.authors[0])
+        else:
+            self.keyword_var.set("")
+            self.clear_recommendations()
+            self.clear_result()
+
 # --- Lógica de cálculo adaptada y helpers ---
 def calculate_indexes_by_author(df, author_name, author_class, keyword):
     author_papers_df = filter_papers_by_authors(df, author_name)
@@ -438,8 +451,7 @@ def slugify_keyword(kw):
     return kw
 
 def get_keywords_for_author(df):
-    keywords_main = []
-    keywords_extra = []
+    keywords_set = set()
     # Use explicit keyword columns if present
     keyword_cols = []
     for col in ['Author Keywords', 'Keywords Plus']:
@@ -453,33 +465,42 @@ def get_keywords_for_author(df):
                 continue
             # Try to parse as list, else split by semicolon/comma
             if isinstance(val, str):
-                # Try to parse as list string
                 try:
                     lst = ast.literal_eval(val)
                     if not isinstance(lst, list):
                         raise Exception()
                 except:
-                    # Fallback: split by semicolon or comma
                     lst = re.split(r'[;,]', val)
                 for kw in lst:
-                    kw = kw.strip().lower()
-                    if kw and re.match(r'^[a-záéíóúüñ\s-]{3,}$', kw):
-                        keywords_main.append(slugify_keyword(kw))
+                    kw = kw.strip()
+                    if kw and len(kw) > 2:
+                        keywords_set.add(kw)
             elif isinstance(val, list):
                 for kw in val:
-                    kw = str(kw).strip().lower()
-                    if kw and re.match(r'^[a-záéíóúüñ\s-]{3,}$', kw):
-                        keywords_main.append(slugify_keyword(kw))
+                    kw = str(kw).strip()
+                    if kw and len(kw) > 2:
+                        keywords_set.add(kw)
         # Extract from title and abstract
         for col in ['Article Title', 'Abstract']:
             if col in df.columns and pd.notna(row.get(col, None)):
-                text = str(row[col]).lower()
-                words = re.findall(r'\b[a-záéíóúüñ-]{4,}\b', text)
+                text = str(row[col])
+                # Tokenizar en palabras de 4+ letras
+                words = re.findall(r'\b[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ-]{4,}\b', text)
+                # Palabras individuales
                 for w in words:
+                    w = w.strip()
                     if w and not re.search(r'\d', w):
-                        keywords_extra.append(slugify_keyword(w))
-    main_count = Counter(keywords_main)
-    extra_count = Counter(keywords_extra)
-    keywords_sorted = [kw for kw, _ in main_count.most_common()]
-    extras_sorted = [kw for kw, _ in extra_count.most_common() if kw not in main_count]
-    return keywords_sorted + extras_sorted 
+                        keywords_set.add(w)
+                # N-gramas de 2 palabras consecutivas
+                n = 2
+                for i in range(len(words) - n + 1):
+                    ngram = ' '.join(words[i:i+n])
+                    if all(len(word) > 3 for word in words[i:i+n]):
+                        keywords_set.add(ngram)
+    # Normalizar para evitar duplicados por mayúsculas/minúsculas/espacios
+    keywords_norm = {}
+    for kw in keywords_set:
+        norm = ' '.join(kw.lower().split())
+        if norm not in keywords_norm:
+            keywords_norm[norm] = kw  # Mantener la forma más legible
+    return sorted(keywords_norm.values(), key=lambda x: x.lower()) 
