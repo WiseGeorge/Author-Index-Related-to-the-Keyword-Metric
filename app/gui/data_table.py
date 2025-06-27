@@ -28,4 +28,16 @@ class DataTable(ctk.CTkFrame):
                     row.get('Article Title', ''),
                     row.get('Publication Year', ''),
                     row.get('Times Cited, WoS Core', row.get('Times Cited', ''))
+                ))
+
+    def set_data(self, df):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+        if not df.empty:
+            for _, row in df.iterrows():
+                self.tree.insert('', 'end', values=(
+                    row.get('Authors', ''),
+                    row.get('Article Title', ''),
+                    row.get('Publication Year', ''),
+                    row.get('Times Cited, WoS Core', row.get('Times Cited', ''))
                 )) 
